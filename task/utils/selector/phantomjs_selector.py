@@ -1,13 +1,10 @@
-import ast
 import warnings
 from collections import OrderedDict
 
-from selenium import webdriver
+from playwright.sync_api import sync_playwright
 from task.utils.selector.selector import SelectorABC as FatherSelector
 
 warnings.filterwarnings("ignore")
-
-USERAGENT = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'
 
 
 class PhantomJSSelector(FatherSelector):
@@ -15,33 +12,22 @@ class PhantomJSSelector(FatherSelector):
         self.debug = debug
 
     def get_html(self, url, headers):
-        # 默认userAgent
-        webdriver.DesiredCapabilities.PHANTOMJS[
-            'phantomjs.page.settings.userAgent'] = USERAGENT
+        headers = headers or {}
+        with sync_playwright() as p:
+            browser = p.firefox.launch()
+            context = browser.new_context(extra_http_headers=headers)
+            page = context.new_page()
+            page.goto(url)
+            
+            if self.debug:
+                import os
+                basepath = os.path.dirname(os.path.dirname(__file__))
+                save_path = os.path.join(basepath, '..', 'static', 'error')
+                os.makedirs(save_path, exist_ok=True)
+                page.screenshot(path=os.path.join(save_path, 'screenshot.png'))
 
-        if headers:
-            header_dict = ast.literal_eval(headers)
-            if type(header_dict) != dict:
-                raise Exception('必须是字典格式')
-
-            for key, value in header_dict.items():
-                if key.lower() == 'User-Agent':
-                    webdriver.DesiredCapabilities.PHANTOMJS[
-                        'phantomjs.page.settings.userAgent'] = value
-                else:
-                    webdriver.DesiredCapabilities.PHANTOMJS[
-                        'phantomjs.page.customHeaders.{}'.format(key)] = value
-
-        driver = webdriver.PhantomJS()
-        driver.get(url)
-        if self.debug:
-            import os
-            basepath = os.path.dirname(os.path.dirname(__file__))
-            save_path = os.path.join(basepath, '..', 'static', 'error')
-            os.makedirs(save_path, exist_ok=True)
-            driver.save_screenshot(os.path.join(save_path, 'screenshot.png'))
-        html = driver.page_source
-        driver.quit()
+            html = page.content()
+            browser.close()
         return html
 
     def get_by_xpath(self, url, selector_dict, headers=None):

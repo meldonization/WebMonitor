@@ -25,7 +25,7 @@ class SelectorABC():
             res = Selector(text=html).xpath(xpath_ext).extract()
 
         if len(res) != 0:
-            return res[0]
+            return str(res[0]).strip()
         else:
             raise Exception('无法获取文本信息')
 
@@ -33,7 +33,7 @@ class SelectorABC():
         res = Selector(text=html).css(css_ext).extract()
 
         if len(res) != 0:
-            return res[0]
+            return str(res[0]).strip()
         else:
             raise Exception('无法获取文本信息')
 
